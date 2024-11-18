@@ -16,9 +16,19 @@ services:
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
-      POSTGRES_DB: nom_de_la_base
+      POSTGRES_DB: db
     volumes:
       - db-data:/var/lib/postgresql/data
+
+  pgadmin:
+    image: dpage/pgadmin4
+    ports:
+      - "8080:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: thomas.lacroix4@etu.unilim.fr
+      PGADMIN_DEFAULT_PASSWORD: admin
+    depends_on:
+      - db
 
 volumes:
   db-data:
