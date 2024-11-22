@@ -90,15 +90,10 @@ export default function Home() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-6 bg-gray-100 rounded-lg shadow-md flex justify-center items-center min-h-screen">
+    <div className="mx-auto p-6 bg-gray-100 rounded-lg shadow-md">
       <h1 className="text-center text-3xl font-bold mb-8 text-gray-800">Planning des Intervenants</h1>
       <FullCalendar
-        eventClick={(info) => {
-          info.jsEvent.preventDefault();
-          if (info.event.url) {
-            window.open(info.event.url, '_blank');
-          }
-        }}
+        plugins={[ dayGridPlugin, timeGridPlugin ]}
         initialView="timeGridWeek"
         events={events}
         headerToolbar={{
