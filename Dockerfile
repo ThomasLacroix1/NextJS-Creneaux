@@ -8,6 +8,9 @@ RUN npm install
 # Copier le reste des fichiers
 COPY . .
 
+# Générer Prisma client
+RUN npx prisma generate
+
 # Exposer le port utilisé par Next.js
 EXPOSE 3000
 

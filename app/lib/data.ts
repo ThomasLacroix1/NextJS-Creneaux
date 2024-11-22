@@ -1,10 +1,13 @@
+'use server';
+
 import { PrismaClient } from '@prisma/client';
-import fs from 'fs';
-import path from 'path';
+import * as fs from 'fs';
+import * as path from 'path';
+import { Intervenant } from '@/lib/definitions';
 
 const prisma = new PrismaClient();
 
-export async function fetchIntervenants() {
+export async function fetchIntervenants(): Promise<Intervenant[]> {
     try {
         const intervenants = await prisma.intervenant.findMany();
         return intervenants;
@@ -16,7 +19,7 @@ export async function fetchIntervenants() {
     }
 }
 
-export async function loadIntervenantsFromJson() {
+export async function loadIntervenantsFromJson(): Promise<any> {
     try {
         const filePath = path.join(process.cwd(), '/data.json');
         const jsonData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -24,7 +27,7 @@ export async function loadIntervenantsFromJson() {
         const dataToInsert = [];
 
         for (const [name, schedules] of Object.entries(jsonData)) {
-            for (const [key, value] of Object.entries(schedules)) {
+            for (const [key, value] of Object.entries(schedules as Record<string, unknown>)) {
                 dataToInsert.push({
                     name,
                     scheduleType: key,
