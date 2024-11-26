@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Sidebar from "./ui/sidebar";
+import Sidebar from "./ui/navigation";
 
 export const metadata: Metadata = {
   title: "Créneaux",
