@@ -13,6 +13,7 @@
     "@fullcalendar/interaction": "^6.1.15",
     "@fullcalendar/react": "^6.1.15",
     "@fullcalendar/timegrid": "^6.1.15",
+    "clsx": "^2.1.1",
     "fs": "^0.0.1-security",
     "mysql2": "^3.11.4",
     "next": "15.0.3",

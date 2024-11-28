@@ -15,10 +15,10 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body className="h-screen">
-        <Sidebar/>
-        <div className="pt-14 h-full">
+        {/* <Sidebar/>
+        <div className="pt-14 h-full"> */}
           {children}
-        </div>
+        {/* </div> */}
       </body>
     </html>
   );
