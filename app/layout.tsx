@@ -14,9 +14,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr">
-      <body>
+      <body className="h-screen">
         <Sidebar/>
-        {children}
+        <div className="pt-14 h-full">
+          {children}
+        </div>
       </body>
     </html>
   );
