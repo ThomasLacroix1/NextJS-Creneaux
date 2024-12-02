@@ -9,10 +9,8 @@ export default function AddIntervenant() {
     email: "",
     firstname: "",
     lastname: "",
-    key: "",
-    creationdate: "",
-    enddate: "",
   });
+  const [error, setError] = useState("");
   const router = useRouter();
 
   const handleChange = (e) => {
@@ -25,14 +23,23 @@ export default function AddIntervenant() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    await createIntervenant(formData);
-    router.push("/dashboard/intervenants");
+    try {
+      await createIntervenant(formData);
+      router.push("/dashboard/intervenants");
+    } catch (error) {
+      setError("Erreur lors de la création de l'intervenant");
+    }
   };
 
   return (
     <div className="flex flex-col items-center mt-8">
       <h1 className="text-3xl font-bold mb-6">Ajouter un Nouvel Intervenant</h1>
       <form className="w-full max-w-md" onSubmit={handleSubmit}>
+        {error && (
+          <div className="mb-4 text-red-500 text-sm font-bold">
+            {error}
+          </div>
+        )}
         <div className="mb-4">
           <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="email">
             Email
@@ -70,48 +77,6 @@ export default function AddIntervenant() {
             name="lastname"
             id="lastname"
             value={formData.lastname}
-            onChange={handleChange}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-            required
-          />
-        </div>
-        <div className="mb-4">
-          <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="key">
-            Clé
-          </label>
-          <input
-            type="text"
-            name="key"
-            id="key"
-            value={formData.key}
-            onChange={handleChange}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-            required
-          />
-        </div>
-        <div className="mb-4">
-          <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="creationdate">
-            Date de Création
-          </label>
-          <input
-            type="date"
-            name="creationdate"
-            id="creationdate"
-            value={formData.creationdate}
-            onChange={handleChange}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-            required
-          />
-        </div>
-        <div className="mb-4">
-          <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="enddate">
-            Date de Fin
-          </label>
-          <input
-            type="date"
-            name="enddate"
-            id="enddate"
-            value={formData.enddate}
             onChange={handleChange}
             className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
             required

@@ -28,3 +28,8 @@ CREATE TABLE Intervenants (
     enddate DATE,
     availability JSON
 );
+
+DB_USER="user"
+DB_PASSWORD="password"
+DB_NAME="db"
+DB_PORT=5432

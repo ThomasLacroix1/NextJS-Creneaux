@@ -1,6 +1,7 @@
 'use server'
 
 import { Pool } from 'pg';
+import { v4 as uuidv4 } from 'uuid';
 
 const db = new Pool({
     user: process.env.DB_USER,
@@ -48,8 +49,26 @@ export async function deleteIntervenant(id){
   }
 }
 
-export async function createIntervenant(data) {
+export async function getIntervenantById(id) {
   const client = await db.connect();
+  try {
+    const result = await client.query('SELECT * FROM "intervenants" WHERE id = $1;', [id]);
+    return result;
+  } catch (err) {
+    console.error('Erreur lors de la récupération de l\'intervenant', err);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function createIntervenant(data: any) {
+  const client = await db.connect();
+  data.creationdate = new Date();
+  const endDate = new Date(data.creationdate);
+  endDate.setDate(endDate.getDate() + 61);
+  data.enddate = endDate;
+  data.key = uuidv4();
   try {
     await client.query(
       'INSERT INTO "intervenants" (email, firstname, lastname, key, creationdate, enddate) VALUES ($1, $2, $3, $4, $5, $6);',
@@ -57,6 +76,21 @@ export async function createIntervenant(data) {
     );
   } catch (err) {
     console.error('Erreur lors de la création de l\'intervenant', err);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function updateIntervenant(data: any){
+  const client = await db.connect();
+  try {
+    await client.query(
+      'UPDATE "intervenants" SET email = $1, firstname = $2, lastname = $3, enddate = $4 WHERE id = $5;',
+      [data.email, data.firstname, data.lastname, data.enddate, data.id]
+    );
+  } catch (err) {
+    console.error('Erreur lors de la mise à jour de l\'intervenant', err);
     throw err;
   } finally {
     client.release();
