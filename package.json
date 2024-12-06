@@ -13,14 +13,18 @@
     "@fullcalendar/interaction": "^6.1.15",
     "@fullcalendar/react": "^6.1.15",
     "@fullcalendar/timegrid": "^6.1.15",
+    "@heroicons/react": "^2.2.0",
+    "bcrypt": "^5.1.1",
     "clsx": "^2.1.1",
     "fs": "^0.0.1-security",
     "mysql2": "^3.11.4",
     "next": "15.0.3",
+    "next-auth": "^5.0.0-beta.25",
     "pg": "^8.13.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "uuid": "^11.0.3"
+    "uuid": "^11.0.3",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^20",

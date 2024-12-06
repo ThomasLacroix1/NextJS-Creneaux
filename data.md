@@ -29,7 +29,20 @@ CREATE TABLE Intervenants (
     availability JSON
 );
 
+CREATE TABLE Users (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL
+);
+
+INSERT INTO Users (email, password) 
+VALUES ('user@example.com', '$2b$10$8Cy5.6UE5CWeuTa/drheA.NyNG7oac/KrMAqQ1Rs0m1QuQwuTl0sO'); 
+
+Utilisateur: 'user@example.com'
+Mot de passe: 'password123'
+
 DB_USER="user"
 DB_PASSWORD="password"
 DB_NAME="db"
 DB_PORT=5432
+AUTH_SECRET=(faire une clé avec openSSL)
