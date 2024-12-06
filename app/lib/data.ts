@@ -14,7 +14,7 @@ const db = new Pool({
 export async function fetchIntervenants(offset: number, limit: number) {
   const client = await db.connect();
   try {
-    const result = await client.query('SELECT * FROM "intervenants" OFFSET $1 LIMIT $2;', [offset, limit]);
+    const result = await client.query('SELECT * FROM "intervenants" ORDER BY id OFFSET $1 LIMIT $2;', [offset, limit]);
     return result.rows;
   } catch (err) {
     console.error('Erreur lors de la récupération des intervenants avec pagination', err);
@@ -53,7 +53,11 @@ export async function getIntervenantById(id) {
   const client = await db.connect();
   try {
     const result = await client.query('SELECT * FROM "intervenants" WHERE id = $1;', [id]);
-    return result;
+    if (result.rows.length > 0) {
+      return result.rows[0]; // Renvoie l'objet intervenant directement
+    } else {
+      throw new Error("Intervenant introuvable");
+    }
   } catch (err) {
     console.error('Erreur lors de la récupération de l\'intervenant', err);
     throw err;
@@ -82,15 +86,72 @@ export async function createIntervenant(data: any) {
   }
 }
 
-export async function updateIntervenant(data: any){
+export async function updateIntervenant(id, data: any){
   const client = await db.connect();
   try {
     await client.query(
       'UPDATE "intervenants" SET email = $1, firstname = $2, lastname = $3, enddate = $4 WHERE id = $5;',
-      [data.email, data.firstname, data.lastname, data.enddate, data.id]
+      [data.email, data.firstname, data.lastname, data.enddate, id]
     );
   } catch (err) {
     console.error('Erreur lors de la mise à jour de l\'intervenant', err);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function createIntervenantNewKey(id){
+  const client = await db.connect();
+  const newKey = uuidv4();
+  try {
+    await client.query('UPDATE "intervenants" SET key = $1 WHERE id = $2;', [newKey, id]);
+  } catch (err) {
+    console.error('Erreur lors de la création d\'une nouvelle clé pour l\'intervenant', err);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function refreshIntervenantsKeys() {
+  const client = await db.connect();
+  try {
+    const result = await client.query('SELECT id FROM "intervenants";');
+    for (const row of result.rows) {
+      const newKey = uuidv4();
+      const creationDate = new Date();
+      const endDate = new Date(creationDate);
+      endDate.setDate(endDate.getDate() + 61);
+      await client.query(
+        'UPDATE "intervenants" SET key = $1, creationdate = $2, enddate = $3 WHERE id = $4;',
+        [newKey, creationDate, endDate, row.id]
+      );
+    }
+  } catch (err) {
+    console.error('Erreur lors de la régénération des clés intervenants', err);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function regenerateKeysForIntervenants() {
+  const client = await db.connect();
+  try {
+    const result = await client.query('SELECT id FROM "intervenants";');
+    for (const row of result.rows) {
+      const newKey = uuidv4();
+      const creationDate = new Date();
+      const endDate = new Date(creationDate);
+      endDate.setDate(endDate.getDate() + 61);
+      await client.query(
+        'UPDATE "intervenants" SET key = $1, creationdate = $2, enddate = $3 WHERE id = $4;',
+        [newKey, creationDate, endDate, row.id]
+      );
+    }
+  } catch (err) {
+    console.error('Erreur lors de la génération des clés pour les intervenants', err);
     throw err;
   } finally {
     client.release();

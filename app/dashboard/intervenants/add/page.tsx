@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Button from "@/ui/button";
 import { createIntervenant } from "@/lib/data";
 
 export default function AddIntervenant() {
@@ -83,12 +84,12 @@ export default function AddIntervenant() {
           />
         </div>
         <div className="flex items-center justify-between">
-          <button
+          <Button
             type="submit"
             className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
           >
             Ajouter Intervenant
-          </button>
+          </Button>
         </div>
       </form>
     </div>

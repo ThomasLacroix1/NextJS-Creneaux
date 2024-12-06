@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect } from "react";
+import { useRouter, useParams } from "next/navigation";
 import { updateIntervenant, getIntervenantById } from "@/lib/data";
 
-export default function EditIntervenant({ id }) {
+export default function EditIntervenant({ params }) {
+    const { id } = useParams();
     const [formData, setFormData] = useState({
         email: "",
         firstname: "",
@@ -15,20 +16,22 @@ export default function EditIntervenant({ id }) {
     const router = useRouter();
 
     useEffect(() => {
-        const fetchIntervenant = async () => {
-            try {
-                const intervenant = await getIntervenantById(id);
-                setFormData({
-                    email: intervenant.email,
-                    firstname: intervenant.firstname,
-                    lastname: intervenant.lastname,
-                    enddate: intervenant.enddate,
-                });
-            } catch (error) {
-                setError("Les données de l'intervenant n'ont pas pu être récupérées.");
-            }
-        };
-        fetchIntervenant();
+        if (id) {
+            const fetchIntervenant = async () => {
+                try {
+                    const intervenant = await getIntervenantById(id);
+                    setFormData({
+                        email: intervenant.email,
+                        firstname: intervenant.firstname,
+                        lastname: intervenant.lastname,
+                        enddate: new Date(intervenant.enddate).toISOString().split("T")[0],
+                    });
+                } catch (error) {
+                    setError("Les données de l'intervenant n'ont pas pu être récupérées.");
+                }
+            };
+            fetchIntervenant();
+        }
     }, [id]);
 
     const handleChange = (e) => {
@@ -42,13 +45,13 @@ export default function EditIntervenant({ id }) {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            await updateIntervenant(intervenantId, formData);
+            await updateIntervenant(id, formData);
             router.push("/dashboard/intervenants");
         } catch (error) {
             if (error.response && error.response.status === 409) {
-                setError("This email is already in use. Please use a different email.");
+                setError("Cet e-mail est déjà utilisé. Veuillez utiliser un autre e-mail.");
             } else {
-                setError("An unexpected error occurred. Please try again later.");
+                setError("Une erreur inattendue s'est produite. Veuillez réessayer plus tard.");
             }
         }
     };
