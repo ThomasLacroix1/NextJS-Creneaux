@@ -24,6 +24,19 @@ export async function fetchIntervenants(offset: number, limit: number) {
   }
 }
 
+export async function getIntervenantByKey(key: string) {
+  const client = await db.connect();
+  try {
+    const result = await client.query('SELECT * FROM "intervenants" WHERE key = $1;', [key]);
+    return result.rows.length > 0 ? result.rows[0] : null;
+  } catch (err) {
+    console.error('Erreur lors de la récupération de l\'intervenant par clé', err);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 export async function countIntervenants() {
   const client = await db.connect();
   try {

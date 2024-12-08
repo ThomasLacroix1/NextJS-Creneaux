@@ -10,6 +10,11 @@ services:
       - /app/node_modules # Évite les conflits avec node_modules de l'hôte
     environment:
       NODE_ENV: development
+      DB_USER: user
+      DB_PASSWORD: password
+      DB_NAME: db
+      DB_PORT: 5432
+      AUTH_SECRET: 5DUYX6WPQiSB8gj/MRLWnoiTVRGHkL8s22gmSLgadLE=
 
   db:
     image: postgres:17

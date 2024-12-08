@@ -1,3 +1,20 @@
+CREATE TABLE Intervenants (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    firstname VARCHAR(100) NOT NULL,
+    lastname VARCHAR(100) NOT NULL,
+    key VARCHAR(255) NOT NULL,
+    creationdate DATE NOT NULL,
+    enddate DATE,
+    availability JSON
+);
+
+CREATE TABLE Users (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL
+);
+
 INSERT INTO Intervenants (email, firstname, lastname, key, creationdate, enddate, availability) 
 VALUES
     ('intervenant.A@unilim.fr', 'Intervenant', 'A', 'A-key', '2023-01-10', '2023-10-15', '{}'), -- Date dépassée
@@ -16,24 +33,6 @@ VALUES
     ('intervenant.N@unilim.fr', 'Intervenant', 'N', 'N-key', '2024-08-12', '2025-03-01', '{}'), -- Date valide
     ('intervenant.O@unilim.fr', 'Intervenant', 'O', 'O-key', '2024-09-15', '2025-02-20', '{}'), -- Date valide
     ('intervenant.P@unilim.fr', 'Intervenant', 'P', 'P-key', '2024-10-20', '2025-01-15', '{}'); -- Date valide
-
-
-CREATE TABLE Intervenants (
-    id SERIAL PRIMARY KEY,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    firstname VARCHAR(100) NOT NULL,
-    lastname VARCHAR(100) NOT NULL,
-    key VARCHAR(255) NOT NULL,
-    creationdate DATE NOT NULL,
-    enddate DATE,
-    availability JSON
-);
-
-CREATE TABLE Users (
-    id SERIAL PRIMARY KEY,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL
-);
 
 INSERT INTO Users (email, password) 
 VALUES ('user@example.com', '$2b$10$8Cy5.6UE5CWeuTa/drheA.NyNG7oac/KrMAqQ1Rs0m1QuQwuTl0sO'); 
