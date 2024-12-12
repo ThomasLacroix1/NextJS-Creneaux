@@ -202,8 +202,7 @@ export default function Availability() {
                         events={events}
                         headerToolbar={{
                             left: "prev,next today",
-                            center: "title",
-                            right: "timeGridWeek",
+                            right: "title",
                         }}
                         buttonText={{
                             today: "Aujourd'hui",
