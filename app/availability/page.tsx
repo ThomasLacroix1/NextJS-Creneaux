@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, notFound } from 'next/navigation';
-import { getIntervenantByKey } from '@/lib/data';
+import { getIntervenantByKey, saveAvailability } from '@/lib/data';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -16,6 +16,7 @@ export default function Availability() {
     const searchParams = useSearchParams();
     const calendarRef = useRef(null);
 
+    // fetch intervenant by key
     useEffect(() => {
         const fetchIntervenant = async () => {
             const key = searchParams.get('key');
@@ -29,6 +30,48 @@ export default function Availability() {
         fetchIntervenant();
     }, [searchParams]);
 
+    // handle select event on calendar
+    const handleSelect = (selectionInfo) => {
+        const { start, end } = selectionInfo;
+
+        // Créer un nouveau créneau
+        const newSlot = {
+            days: getDayFromDate(start),
+            from: formatTime(start),
+            to: formatTime(end),
+        };
+
+        const updatedAvailability = {
+            ...intervenant.availability,
+            default: [
+                ...intervenant.availability.default,
+                newSlot,
+            ],
+        };
+
+        // Mettre à jour l'état local
+        const updatedIntervenant = {
+            ...intervenant,
+            availability: updatedAvailability,
+        };
+
+        setIntervenant(updatedIntervenant);
+        setEvents(transformSlotsToEvents(updatedIntervenant, currentWeek));
+
+        // Sauvegarder les disponibilités dans la base de données
+        saveAvailability(updatedIntervenant);
+    };
+
+    const getDayFromDate = (date) => {
+        const days = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+        return days[date.getDay()];
+    };
+
+    const formatTime = (date) => {
+        return date.toISOString().split("T")[1].slice(0, 5); // Format HH:mm
+    };
+
+    // affichage des disponibilités
     const handleDatesSet = ({ start }) => {
         const startDate = new Date(start);
         const newYear = getThursdayYear(startDate);
@@ -164,6 +207,7 @@ export default function Availability() {
                         ref={calendarRef}
                         plugins={[timeGridPlugin, interactionPlugin]}
                         initialView="timeGridWeek"
+                        selectable={true}
                         hiddenDays={[0, 6]}
                         events={events}
                         headerToolbar={{
@@ -185,6 +229,7 @@ export default function Availability() {
                             minute: "2-digit",
                             hour12: false,
                         }}
+                        select={handleSelect}
                         datesSet={handleDatesSet}
                         dayHeaderClassNames="bg-red-500 text-white font-semibold uppercase"
                     />

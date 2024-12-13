@@ -170,3 +170,15 @@ export async function regenerateKeysForIntervenants() {
     client.release();
   }
 }
+
+export async function saveAvailability(intervenant) {
+  const client = await db.connect();
+  try {
+    await client.query('UPDATE "intervenants" SET availability = $1 WHERE id = $2;', [intervenant.availability, intervenant.id]);
+  } catch (err) {
+    console.error('Erreur lors de la sauvegarde de la disponibilité de l\'intervenant', err);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
