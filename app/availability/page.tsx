@@ -14,7 +14,6 @@ export default function Availability() {
     const [currentWeek, setCurrentWeek] = useState(new Date());
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
     const searchParams = useSearchParams();
-
     const calendarRef = useRef(null);
 
     useEffect(() => {
@@ -23,13 +22,7 @@ export default function Availability() {
             if (key) {
                 const intervenant = await getIntervenantByKey(key);
                 setIntervenant(intervenant);
-
-                const allEvents = transformSlotsToEvents(
-                    `${intervenant.firstname} ${intervenant.lastname}`,
-                    intervenant.availability,
-                    new Date()
-                );
-                setEvents(allEvents);
+                setEvents(transformSlotsToEvents(intervenant, new Date()));
             }
             setIsLoading(false);
         };
@@ -38,63 +31,35 @@ export default function Availability() {
 
     const handleDatesSet = ({ start }) => {
         const startDate = new Date(start);
+        const newYear = getThursdayYear(startDate);
 
-        // Trouver l'année basée sur le jeudi
-        const thursday = new Date(startDate);
-        thursday.setDate(startDate.getDate() + (4 - startDate.getDay() + 7) % 7); // Trouver le jeudi de la semaine
-        const newYear = thursday.getFullYear(); // Année du jeudi
-
-        // Mettre à jour l'année et la semaine actuelle si elles changent
         if (currentWeek.getTime() !== startDate.getTime() || currentYear !== newYear) {
             setCurrentWeek(startDate);
             setCurrentYear(newYear);
         }
 
         if (intervenant) {
-            const allEvents = transformSlotsToEvents(
-                `${intervenant.firstname} ${intervenant.lastname}`,
-                intervenant.availability,
-                startDate
-            );
-
-            // Vérifier si les événements ont réellement changé avant d'appeler setEvents
-            const areEventsEqual = JSON.stringify(events) === JSON.stringify(allEvents);
-            if (!areEventsEqual) {
+            const allEvents = transformSlotsToEvents(intervenant, startDate);
+            if (JSON.stringify(events) !== JSON.stringify(allEvents)) {
                 setEvents(allEvents);
             }
         }
     };
 
-
-
-    function transformSlotsToEvents(intervenantName, slots, currentDate) {
+    const transformSlotsToEvents = (intervenant, currentDate) => {
         const events = [];
         const currentWeekNumber = getWeekNumber(currentDate);
+        const slots = intervenant.availability;
 
         Object.keys(slots).forEach((key) => {
-            if (key !== "default" && key === `S${currentWeekNumber}`) {
+            if (key === `S${currentWeekNumber}` || (key === "default" && !slots[`S${currentWeekNumber}`])) {
                 slots[key].forEach((slot) => {
-                    const days = slot.days.split(", ");
-                    days.forEach((day) => {
-                        const dayNumber = convertDayToNumber(day);
+                    slot.days.split(", ").forEach((day) => {
                         events.push({
-                            title: intervenantName,
+                            title: `${intervenant.firstname} ${intervenant.lastname}`,
                             startTime: slot.from,
                             endTime: slot.to,
-                            daysOfWeek: [dayNumber],
-                        });
-                    });
-                });
-            } else if (key === "default" && !Object.keys(slots).some(k => k === `S${currentWeekNumber}`)) {
-                slots[key].forEach((slot) => {
-                    const days = slot.days.split(", ");
-                    days.forEach((day) => {
-                        const dayNumber = convertDayToNumber(day);
-                        events.push({
-                            title: intervenantName,
-                            startTime: slot.from,
-                            endTime: slot.to,
-                            daysOfWeek: [dayNumber],
+                            daysOfWeek: [convertDayToNumber(day)],
                         });
                     });
                 });
@@ -102,54 +67,55 @@ export default function Availability() {
         });
 
         return events;
-    }
+    };
 
-    function getWeekNumber(date) {
-        const oneJan = new Date(date.getFullYear(), 0, 1);
-        const days = Math.floor((date - oneJan) / (24 * 60 * 60 * 1000));
-        let weekNumber = Math.ceil((days + oneJan.getDay() + 1) / 7);
-        if (weekNumber === 53) {
-            weekNumber = 1;
-        }
-        return weekNumber;
-    }
+    const getWeekNumber = (date) => {
+        const target = new Date(date);
+        const dayNr = (target.getDay() + 6) % 7; // Lundi = 0
+        target.setDate(target.getDate() - dayNr + 3); // Aller au jeudi
+        const firstThursday = new Date(target.getFullYear(), 0, 4); // Premier jeudi
+        const diff = target - firstThursday;
+        return 1 + Math.round(diff / (7 * 24 * 60 * 60 * 1000)); // Numéro de semaine
+    };
 
-    function convertDayToNumber(day) {
-        const days = {
-            lundi: 1,
-            mardi: 2,
-            mercredi: 3,
-            jeudi: 4,
-            vendredi: 5,
-        };
+    const convertDayToNumber = (day) => {
+        const days = { lundi: 1, mardi: 2, mercredi: 3, jeudi: 4, vendredi: 5 };
         return days[day];
-    }
+    };
 
-    function navigateToWeek(weekNumber) {
-        const firstDayOfYear = new Date(currentYear, 0, 1);
-        const firstThursday = new Date(firstDayOfYear);
-        firstThursday.setDate(firstThursday.getDate() + ((4 - firstDayOfYear.getDay() + 7) % 7));
+    const getThursdayYear = (date) => {
+        const thursday = new Date(date);
+        thursday.setDate(date.getDate() + (4 - date.getDay() + 7) % 7); // Trouver le jeudi
+        return thursday.getFullYear();
+    };
 
+    const has53rdWeek = (year) => {
+        const lastDay = new Date(year, 11, 31); // 31 décembre
+        const lastDayOfWeek = lastDay.getDay();
+        return lastDayOfWeek === 4 || (new Date(year + 1, 0, 1).getDay() === 5); // Jeudi ou vendredi
+    };
+
+    const navigateToWeek = (weekNumber) => {
+        const firstThursday = new Date(currentYear, 0, 4);
         const firstWeekMonday = new Date(firstThursday);
-        firstWeekMonday.setDate(firstThursday.getDate() - 3);
-
+        firstWeekMonday.setDate(firstThursday.getDate() - ((firstThursday.getDay() + 6) % 7)); // Premier lundi
         const targetDate = new Date(firstWeekMonday);
         targetDate.setDate(firstWeekMonday.getDate() + (weekNumber - 1) * 7);
 
         setCurrentWeek(targetDate);
+        calendarRef.current.getApi().changeView('timeGridWeek', targetDate);
+    };
 
-        const calendarApi = calendarRef.current.getApi();
-        calendarApi.changeView('timeGridWeek', targetDate);
-    }
-
-    function changeYear(year) {
+    const changeYear = (year) => {
         setCurrentYear(year);
         const firstDayOfYear = new Date(year, 0, 1);
-        setCurrentWeek(firstDayOfYear);
-
-        const calendarApi = calendarRef.current.getApi();
-        calendarApi.changeView('timeGridWeek', firstDayOfYear);
-    }
+        const firstThursday = new Date(firstDayOfYear);
+        firstThursday.setDate(firstDayOfYear.getDate() + ((4 - firstDayOfYear.getDay() + 7) % 7)); // Premier jeudi
+        const firstWeekMonday = new Date(firstThursday);
+        firstWeekMonday.setDate(firstThursday.getDate() - ((firstThursday.getDay() + 6) % 7)); // Premier lundi ISO
+        setCurrentWeek(firstWeekMonday);
+        calendarRef.current.getApi().changeView('timeGridWeek', firstWeekMonday);
+    };
 
     if (isLoading) {
         return <div>Chargement...</div>;
@@ -179,7 +145,7 @@ export default function Availability() {
                         ))}
                     </select>
                     <div className="grid grid-cols-4 gap-2">
-                        {[...Array(52).keys()].map((week) => (
+                        {[...Array(has53rdWeek(currentYear) ? 53 : 52).keys()].map((week) => (
                             <button
                                 key={week + 1}
                                 className={`p-2 rounded-lg text-center font-semibold ${getWeekNumber(currentWeek) === week + 1
