@@ -14,6 +14,8 @@ export default function Availability() {
     const [currentWeek, setCurrentWeek] = useState(new Date());
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
     const [selectedSlot, setSelectedSlot] = useState(null); // Stocker le créneau sélectionné pour la modale
+    const [slotToDelete, setSlotToDelete] = useState(null); // Stocker le créneau à supprimer
+    const [selectedEvent, setSelectedEvent] = useState(null); // Stocker l'événement sélectionné
     const searchParams = useSearchParams();
     const calendarRef = useRef(null);
 
@@ -70,7 +72,33 @@ export default function Availability() {
         setEvents(transformSlotsToEvents(updatedIntervenant, currentWeek));
         saveAvailability(updatedIntervenant);
         setSelectedSlot(null);
-    };     
+    };
+
+    const deleteSlot = () => {
+        if (!slotToDelete) return;
+        const { slot, isDefault } = slotToDelete;
+        if (isDefault) {
+            alert("Les créneaux par défaut ne peuvent pas être supprimés.");
+            return;
+        }
+        const weekNumber = getWeekNumber(currentWeek);
+        const weekKey = `S${weekNumber}`;
+        const updatedAvailability = {
+            ...intervenant.availability,
+            [weekKey]: intervenant.availability[weekKey].filter(
+                (s) => !(s.from === slot.from && s.to === slot.to && s.days === slot.days)
+            ),
+        };
+        const updatedIntervenant = {
+            ...intervenant,
+            availability: updatedAvailability,
+        };
+        setIntervenant(updatedIntervenant);
+        setEvents(transformSlotsToEvents(updatedIntervenant, currentWeek));
+        saveAvailability(updatedIntervenant);
+        setSlotToDelete(null);
+        setSelectedEvent(null);
+    };
 
     const getDayFromDate = (date) => {
         const days = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
@@ -78,7 +106,11 @@ export default function Availability() {
     };
 
     const formatTime = (date) => {
-        return date.toISOString().split("T")[1].slice(0, 5); // Format HH:mm
+        return date.toLocaleTimeString("fr-FR", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+        });
     };
 
     const handleDatesSet = ({ start }) => {
@@ -102,17 +134,24 @@ export default function Availability() {
         const slots = intervenant.availability;
         const creationDate = new Date(intervenant.creationdate);
         const endDate = new Date(intervenant.enddate);
-
+    
         if (currentDate >= creationDate && currentDate <= endDate) {
             Object.keys(slots).forEach((key) => {
                 if (key === `S${currentWeekNumber}` || (key === "default" && !slots[`S${currentWeekNumber}`])) {
                     slots[key].forEach((slot) => {
                         slot.days.split(", ").forEach((day) => {
                             events.push({
-                                title: `${intervenant.firstname} ${intervenant.lastname}`,
+                                title: key === "default" ? "Créneau par défaut" : "Créneau personnalisé",
                                 startTime: slot.from,
                                 endTime: slot.to,
                                 daysOfWeek: [convertDayToNumber(day)],
+                                backgroundColor: key === "default" ? "#FFCDD2" : "#FF0000",
+                                textColor: "#FFFFFF",
+                                borderColor: "transparent",
+                                extendedProps: {
+                                    slot,
+                                    isDefault: key === "default",
+                                },
                             });
                         });
                     });
@@ -121,6 +160,7 @@ export default function Availability() {
         }
         return events;
     };
+    
 
     const getWeekNumber = (date) => {
         const target = new Date(date);
@@ -201,10 +241,11 @@ export default function Availability() {
                         {[...Array(has53rdWeek(currentYear) ? 53 : 52).keys()].map((week) => (
                             <button
                                 key={week + 1}
-                                className={`p-2 rounded-lg text-center font-semibold ${getWeekNumber(currentWeek) === week + 1
-                                    ? "bg-red-500 text-white"
-                                    : "bg-gray-200 text-gray-800 hover:bg-red-200"
-                                    }`}
+                                className={`p-2 rounded-lg text-center font-semibold ${
+                                    getWeekNumber(currentWeek) === week + 1
+                                        ? "bg-red-500 text-white"
+                                        : "bg-gray-200 text-gray-800 hover:bg-red-200"
+                                }`}
                                 onClick={() => navigateToWeek(week + 1)}
                             >
                                 {week + 1}
@@ -228,35 +269,77 @@ export default function Availability() {
                             today: "Aujourd'hui",
                             week: "Semaine",
                         }}
-                        eventColor="#FF0000"
-                        eventTextColor="#FFFFFF"
-                        slotLabelClassNames="text-gray-600 font-medium"
-                        height="auto"
                         slotMinTime="08:00:00"
                         slotMaxTime="20:00:00"
-                        slotLabelFormat={{
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: false,
-                        }}
                         select={handleSelect}
                         datesSet={handleDatesSet}
-                        dayHeaderClassNames="bg-red-500 text-white font-semibold uppercase"
+                        eventClick={(info) => {
+                            setSelectedEvent(info.event);
+                        }}
                     />
                 </div>
             </div>
+
+            {/* Event Details */}
+            {selectedEvent && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white p-6 rounded-lg shadow-lg w-96">
+                        <h2 className="text-xl font-bold mb-4">Détails du créneau</h2>
+                        <div className="mb-4">
+                            <p><strong>Début:</strong> {selectedEvent.start.toLocaleString("fr-FR", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                            <p><strong>Fin:</strong> {selectedEvent.end.toLocaleString("fr-FR", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                            {selectedEvent.extendedProps.isDefault && (
+                                <p className="text-sm text-gray-600">Créneau par défaut</p>
+                            )}
+                        </div>
+                        <div className="flex justify-end gap-4">
+                            <button
+                                onClick={() => setSelectedEvent(null)}
+                                className="px-4 py-2 bg-gray-200 text-gray-700 rounded"
+                            >
+                                Fermer
+                            </button>
+                            {!selectedEvent.extendedProps.isDefault && (
+                                <button
+                            onClick={() => setSlotToDelete({ slot: selectedEvent.extendedProps.slot, isDefault: selectedEvent.extendedProps.isDefault })}
+                            className="px-4 py-2 bg-red-500 text-white rounded flex items-center"
+                        >
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                        className="w-5 h-5 mr-2"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M6 18L18 6M6 6l12 12"
+                                        />
+                                    </svg>
+                                    Supprimer
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Modale de confirmation */}
             {selectedSlot && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white p-6 rounded-lg shadow-lg w-96">
                         <h2 className="text-xl font-bold mb-4">Confirmer le créneau</h2>
+                        <p className="text-sm mb-4 text-gray-600">
+                            Les créneaux personnalisés sont uniquement valables pour cette semaine.
+                        </p>
                         <div className="mb-4">
                             <label className="block text-sm font-medium text-gray-700">Début</label>
                             <input
                                 type="time"
                                 className="mt-1 p-2 border border-gray-300 rounded w-full"
-                                defaultValue={formatTime(selectedSlot.start)}
+                                value={formatTime(selectedSlot.start)}
                                 onChange={(e) =>
                                     setSelectedSlot({
                                         ...selectedSlot,
@@ -272,7 +355,7 @@ export default function Availability() {
                             <input
                                 type="time"
                                 className="mt-1 p-2 border border-gray-300 rounded w-full"
-                                defaultValue={formatTime(selectedSlot.end)}
+                                value={formatTime(selectedSlot.end)}
                                 onChange={(e) =>
                                     setSelectedSlot({
                                         ...selectedSlot,
@@ -295,6 +378,33 @@ export default function Availability() {
                                 className="px-4 py-2 bg-red-500 text-white rounded"
                             >
                                 Confirmer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modale de suppression */}
+            {slotToDelete && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white p-6 rounded-lg shadow-lg w-96">
+                        <h2 className="text-xl font-bold mb-4">Supprimer le créneau</h2>
+                        <p className="mb-4">Êtes-vous sûr de vouloir supprimer ce créneau ?</p>
+                        <div className="flex justify-end gap-4">
+                            <button
+                                onClick={() => {
+                                    setSlotToDelete(null);
+                                    setSelectedEvent(null);
+                                }}
+                                className="px-4 py-2 bg-gray-200 text-gray-700 rounded"
+                            >
+                                Annuler
+                            </button>
+                            <button
+                                onClick={deleteSlot}
+                                className="px-4 py-2 bg-red-500 text-white rounded"
+                            >
+                                Supprimer
                             </button>
                         </div>
                     </div>
