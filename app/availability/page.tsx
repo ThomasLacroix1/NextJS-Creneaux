@@ -13,10 +13,10 @@ export default function Availability() {
     const [events, setEvents] = useState([]);
     const [currentWeek, setCurrentWeek] = useState(new Date());
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+    const [selectedSlot, setSelectedSlot] = useState(null); // Stocker le créneau sélectionné pour la modale
     const searchParams = useSearchParams();
     const calendarRef = useRef(null);
 
-    // fetch intervenant by key
     useEffect(() => {
         const fetchIntervenant = async () => {
             const key = searchParams.get('key');
@@ -30,37 +30,47 @@ export default function Availability() {
         fetchIntervenant();
     }, [searchParams]);
 
-    // handle select event on calendar
     const handleSelect = (selectionInfo) => {
         const { start, end } = selectionInfo;
+        start.setHours(start.getHours() + 1);
+        end.setHours(end.getHours() + 1);
+        setSelectedSlot({ start, end });
+    };
 
-        // Créer un nouveau créneau
+    const saveSlot = () => {
+        if (!selectedSlot) return;
+        const { start, end } = selectedSlot;
+        if (start >= end) {
+            alert("L'heure de début doit être avant l'heure de fin.");
+            return;
+        }
+        if (start < new Date(intervenant.creationdate) || start > new Date(intervenant.enddate)) {
+            alert("Le créneau doit être compris dans les semaines de votre contrat.");
+            return;
+        }
+        const weekNumber = getWeekNumber(start);
+        const weekKey = `S${weekNumber}`;
         const newSlot = {
             days: getDayFromDate(start),
             from: formatTime(start),
             to: formatTime(end),
         };
-
         const updatedAvailability = {
             ...intervenant.availability,
-            default: [
-                ...intervenant.availability.default,
+            [weekKey]: [
+                ...(intervenant.availability[weekKey] || []),
                 newSlot,
             ],
         };
-
-        // Mettre à jour l'état local
         const updatedIntervenant = {
             ...intervenant,
             availability: updatedAvailability,
         };
-
         setIntervenant(updatedIntervenant);
         setEvents(transformSlotsToEvents(updatedIntervenant, currentWeek));
-
-        // Sauvegarder les disponibilités dans la base de données
         saveAvailability(updatedIntervenant);
-    };
+        setSelectedSlot(null);
+    };     
 
     const getDayFromDate = (date) => {
         const days = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
@@ -71,16 +81,13 @@ export default function Availability() {
         return date.toISOString().split("T")[1].slice(0, 5); // Format HH:mm
     };
 
-    // affichage des disponibilités
     const handleDatesSet = ({ start }) => {
         const startDate = new Date(start);
         const newYear = getThursdayYear(startDate);
-
         if (currentWeek.getTime() !== startDate.getTime() || currentYear !== newYear) {
             setCurrentWeek(startDate);
             setCurrentYear(newYear);
         }
-
         if (intervenant) {
             const allEvents = transformSlotsToEvents(intervenant, startDate);
             if (JSON.stringify(events) !== JSON.stringify(allEvents)) {
@@ -93,22 +100,25 @@ export default function Availability() {
         const events = [];
         const currentWeekNumber = getWeekNumber(currentDate);
         const slots = intervenant.availability;
+        const creationDate = new Date(intervenant.creationdate);
+        const endDate = new Date(intervenant.enddate);
 
-        Object.keys(slots).forEach((key) => {
-            if (key === `S${currentWeekNumber}` || (key === "default" && !slots[`S${currentWeekNumber}`])) {
-                slots[key].forEach((slot) => {
-                    slot.days.split(", ").forEach((day) => {
-                        events.push({
-                            title: `${intervenant.firstname} ${intervenant.lastname}`,
-                            startTime: slot.from,
-                            endTime: slot.to,
-                            daysOfWeek: [convertDayToNumber(day)],
+        if (currentDate >= creationDate && currentDate <= endDate) {
+            Object.keys(slots).forEach((key) => {
+                if (key === `S${currentWeekNumber}` || (key === "default" && !slots[`S${currentWeekNumber}`])) {
+                    slots[key].forEach((slot) => {
+                        slot.days.split(", ").forEach((day) => {
+                            events.push({
+                                title: `${intervenant.firstname} ${intervenant.lastname}`,
+                                startTime: slot.from,
+                                endTime: slot.to,
+                                daysOfWeek: [convertDayToNumber(day)],
+                            });
                         });
                     });
-                });
-            }
-        });
-
+                }
+            });
+        }
         return events;
     };
 
@@ -235,6 +245,61 @@ export default function Availability() {
                     />
                 </div>
             </div>
+
+            {/* Modale de confirmation */}
+            {selectedSlot && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white p-6 rounded-lg shadow-lg w-96">
+                        <h2 className="text-xl font-bold mb-4">Confirmer le créneau</h2>
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700">Début</label>
+                            <input
+                                type="time"
+                                className="mt-1 p-2 border border-gray-300 rounded w-full"
+                                defaultValue={formatTime(selectedSlot.start)}
+                                onChange={(e) =>
+                                    setSelectedSlot({
+                                        ...selectedSlot,
+                                        start: new Date(
+                                            `${selectedSlot.start.toISOString().split("T")[0]}T${e.target.value}`
+                                        ),
+                                    })
+                                }
+                            />
+                        </div>
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700">Fin</label>
+                            <input
+                                type="time"
+                                className="mt-1 p-2 border border-gray-300 rounded w-full"
+                                defaultValue={formatTime(selectedSlot.end)}
+                                onChange={(e) =>
+                                    setSelectedSlot({
+                                        ...selectedSlot,
+                                        end: new Date(
+                                            `${selectedSlot.end.toISOString().split("T")[0]}T${e.target.value}`
+                                        ),
+                                    })
+                                }
+                            />
+                        </div>
+                        <div className="flex justify-end gap-4">
+                            <button
+                                onClick={() => setSelectedSlot(null)}
+                                className="px-4 py-2 bg-gray-200 text-gray-700 rounded"
+                            >
+                                Annuler
+                            </button>
+                            <button
+                                onClick={saveSlot}
+                                className="px-4 py-2 bg-red-500 text-white rounded"
+                            >
+                                Confirmer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
