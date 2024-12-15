@@ -37,6 +37,19 @@ export async function getIntervenantByKey(key: string) {
   }
 }
 
+export async function getIntervenantsNames(){
+  const client = await db.connect();
+  try {
+    const result = await client.query('SELECT id, firstname, lastname FROM "intervenants" ORDER BY lastname;');
+    return result.rows;
+  } catch (err) {
+    console.error('Erreur lors de la récupération des noms des intervenants', err);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 export async function countIntervenants() {
   const client = await db.connect();
   try {
