@@ -19,6 +19,10 @@ const links = [
     name: "Disponibilités",
     href: "/dashboard/disponibilites",
   },
+  {
+    name: "Exporter",
+    href: "/dashboard/exporter",
+  }
 ];
 
 export default function NavLinks() {
