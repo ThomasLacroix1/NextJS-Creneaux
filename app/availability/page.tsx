@@ -13,9 +13,10 @@ export default function Availability() {
     const [events, setEvents] = useState([]);
     const [currentWeek, setCurrentWeek] = useState(new Date());
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-    const [selectedSlot, setSelectedSlot] = useState(null); // Stocker le créneau sélectionné pour la modale
-    const [slotToDelete, setSlotToDelete] = useState(null); // Stocker le créneau à supprimer
-    const [selectedEvent, setSelectedEvent] = useState(null); // Stocker l'événement sélectionné
+    const [selectedSlot, setSelectedSlot] = useState(null); 
+    const [slotToDelete, setSlotToDelete] = useState(null); 
+    const [selectedEvent, setSelectedEvent] = useState(null); 
+    const [editingEvent, setEditingEvent] = useState(null);
     const searchParams = useSearchParams();
     const calendarRef = useRef(null);
 
@@ -97,6 +98,38 @@ export default function Availability() {
         setEvents(transformSlotsToEvents(updatedIntervenant, currentWeek));
         saveAvailability(updatedIntervenant);
         setSlotToDelete(null);
+        setSelectedEvent(null);
+    };
+
+    const editSlot = () => {
+        if (!editingEvent) return;
+        const { slot, updatedStart, updatedEnd } = editingEvent;
+
+        if (updatedStart >= updatedEnd) {
+            alert("L'heure de début doit être avant l'heure de fin.");
+            return;
+        }
+
+        const weekNumber = getWeekNumber(currentWeek);
+        const weekKey = `S${weekNumber}`;
+        const updatedAvailability = {
+            ...intervenant.availability,
+            [weekKey]: intervenant.availability[weekKey].map((s) =>
+                s.from === slot.from && s.to === slot.to && s.days === slot.days
+                    ? { ...slot, from: formatTime(updatedStart), to: formatTime(updatedEnd) }
+                    : s
+            ),
+        };
+
+        const updatedIntervenant = {
+            ...intervenant,
+            availability: updatedAvailability,
+        };
+
+        setIntervenant(updatedIntervenant);
+        setEvents(transformSlotsToEvents(updatedIntervenant, currentWeek));
+        saveAvailability(updatedIntervenant);
+        setEditingEvent(null);
         setSelectedEvent(null);
     };
 
@@ -286,8 +319,28 @@ export default function Availability() {
                     <div className="bg-white p-6 rounded-lg shadow-lg w-96">
                         <h2 className="text-xl font-bold mb-4">Détails du créneau</h2>
                         <div className="mb-4">
-                            <p><strong>Début:</strong> {selectedEvent.start.toLocaleString("fr-FR", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-                            <p><strong>Fin:</strong> {selectedEvent.end.toLocaleString("fr-FR", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                            <p>
+                                <strong>Début:</strong>{" "}
+                                {selectedEvent.start.toLocaleString("fr-FR", {
+                                    weekday: "long",
+                                    year: "numeric",
+                                    month: "long",
+                                    day: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                })}
+                            </p>
+                            <p>
+                                <strong>Fin:</strong>{" "}
+                                {selectedEvent.end.toLocaleString("fr-FR", {
+                                    weekday: "long",
+                                    year: "numeric",
+                                    month: "long",
+                                    day: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                })}
+                            </p>
                             {selectedEvent.extendedProps.isDefault && (
                                 <p className="text-sm text-gray-600">Créneau par défaut</p>
                             )}
@@ -300,27 +353,102 @@ export default function Availability() {
                                 Fermer
                             </button>
                             {!selectedEvent.extendedProps.isDefault && (
-                                <button
-                            onClick={() => setSlotToDelete({ slot: selectedEvent.extendedProps.slot, isDefault: selectedEvent.extendedProps.isDefault })}
-                            className="px-4 py-2 bg-red-500 text-white rounded flex items-center"
-                        >
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                        className="w-5 h-5 mr-2"
+                                <>
+                                    <button
+                                        onClick={() =>
+                                            setSlotToDelete({
+                                                slot: selectedEvent.extendedProps.slot,
+                                                isDefault: selectedEvent.extendedProps.isDefault,
+                                            })
+                                        }
+                                        className="px-4 py-2 bg-red-500 text-white rounded flex items-center"
                                     >
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth={2}
-                                            d="M6 18L18 6M6 6l12 12"
-                                        />
-                                    </svg>
-                                    Supprimer
-                                </button>
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                            className="w-5 h-5 mr-2"
+                                        >
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth={2}
+                                                d="M6 18L18 6M6 6l12 12"
+                                            />
+                                        </svg>
+                                        Supprimer
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setEditingEvent({
+                                                slot: selectedEvent.extendedProps.slot,
+                                                updatedStart: new Date(selectedEvent.start),
+                                                updatedEnd: new Date(selectedEvent.end),
+                                            });
+                                            setSelectedEvent(null);
+                                        }}
+                                        className="px-4 py-2 bg-blue-500 text-white rounded"
+                                    >
+                                        Modifier
+                                    </button>
+                                </>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modale pour éditer un événement */}
+            {editingEvent && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white p-6 rounded-lg shadow-lg w-96">
+                        <h2 className="text-xl font-bold mb-4">Modifier le créneau</h2>
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700">Début</label>
+                            <input
+                                type="time"
+                                className="mt-1 p-2 border border-gray-300 rounded w-full"
+                                value={formatTime(editingEvent.updatedStart)}
+                                onChange={(e) =>
+                                    setEditingEvent({
+                                        ...editingEvent,
+                                        updatedStart: new Date(
+                                            `${editingEvent.updatedStart.toISOString().split("T")[0]}T${e.target.value}`
+                                        ),
+                                    })
+                                }
+                            />
+                        </div>
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700">Fin</label>
+                            <input
+                                type="time"
+                                className="mt-1 p-2 border border-gray-300 rounded w-full"
+                                value={formatTime(editingEvent.updatedEnd)}
+                                onChange={(e) =>
+                                    setEditingEvent({
+                                        ...editingEvent,
+                                        updatedEnd: new Date(
+                                            `${editingEvent.updatedEnd.toISOString().split("T")[0]}T${e.target.value}`
+                                        ),
+                                    })
+                                }
+                            />
+                        </div>
+                        <div className="flex justify-end gap-4">
+                            <button
+                                onClick={() => setEditingEvent(null)}
+                                className="px-4 py-2 bg-gray-200 text-gray-700 rounded"
+                            >
+                                Annuler
+                            </button>
+                            <button
+                                onClick={editSlot}
+                                className="px-4 py-2 bg-blue-500 text-white rounded"
+                            >
+                                Enregistrer
+                            </button>
                         </div>
                     </div>
                 </div>
