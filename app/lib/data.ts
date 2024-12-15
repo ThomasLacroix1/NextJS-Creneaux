@@ -195,3 +195,16 @@ export async function saveAvailability(intervenant) {
     client.release();
   }
 }
+
+export async function getIntervenantsForExport() {
+  const client = await db.connect();
+  try {
+    const result = await client.query('SELECT firstname, lastname, availability FROM "intervenants";');
+    return result.rows;
+  } catch (err) {
+    console.error('Erreur lors de la récupération des intervenants pour l\'export', err);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
