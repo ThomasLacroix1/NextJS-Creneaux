@@ -13,6 +13,7 @@ export default function Availability() {
     const [intervenant, setIntervenant] = useState<Intervenant>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [events, setEvents] = useState<any[]>([]);
+    const [isWorkweekModalOpen, setIsWorkweekModalOpen] = useState(false);
     const [currentWeek, setCurrentWeek] = useState(new Date());
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
     const [selectedSlot, setSelectedSlot] = useState(null); 
@@ -61,11 +62,7 @@ export default function Availability() {
             alert("L'heure de début doit être avant l'heure de fin.");
             return;
         }
-        // if (!intervenant.creationdate || !intervenant.enddate || start < new Date(intervenant.creationdate) || start > new Date(intervenant.enddate)) {
-        //     alert("Le créneau doit être compris dans les semaines de votre contrat.");
-        //     return;
-        // }
-        
+
         const weekNumber = getWeekNumber(start);
         const weekKey = `S${weekNumber}`;
         const newSlot = {
@@ -180,11 +177,19 @@ export default function Availability() {
         const events = [];
         const currentWeekNumber = getWeekNumber(currentDate);
         const slots = intervenant.availability;
-        const creationDate = new Date(intervenant.creationdate);
-        const endDate = new Date(intervenant.enddate);
     
-        // if (currentDate >= creationDate && currentDate <= endDate) {
+        // Vérifiez si les semaines de travail sont définies
+        if (!intervenant.workweek || !intervenant.workweek.data) {
+            return events; // Si aucune semaine de travail n'est définie, retourner un tableau vide
+        }
+    
+        // Obtenez les semaines de travail
+        const workweeks = intervenant.workweek.data.map(week => week.week);
+    
+        // Afficher uniquement si la semaine actuelle est une semaine de travail
+        if (workweeks.includes(currentWeekNumber)) {
             Object.keys(slots).forEach((key) => {
+                // Afficher les créneaux spécifiques pour la semaine ou utiliser les créneaux par défaut si non définis
                 if (key === `S${currentWeekNumber}` || (key === "default" && !slots[`S${currentWeekNumber}`])) {
                     slots[key].forEach((slot) => {
                         slot.days.split(", ").forEach((day) => {
@@ -205,7 +210,8 @@ export default function Availability() {
                     });
                 }
             });
-        // }
+        }
+    
         return events;
     };
 
@@ -268,31 +274,43 @@ export default function Availability() {
     return (
     <div className="mx-auto h-fit w-full p-6 bg-gray-50 rounded-lg shadow-lg">
         {/* Intervenant selector */}
-        <div className="mb-6">
-            <label htmlFor="intervenant-select" className="block text-gray-700 font-semibold mb-2">
-                Choisir un intervenant :
-            </label>
-            <select
-                id="intervenant-select"
-                value={selectedIntervenantId}
-                onChange={handleIntervenantChange}
-                className="p-2 border border-gray-300 rounded-lg"
-            >
-                {intervenantsList.map((intervenant) => (
-                    <option key={intervenant.id} value={intervenant.id}>
-                        {intervenant.firstname} {intervenant.lastname}
-                    </option>
-                ))}
-            </select>
-        </div>
+        <div className="mb-6 flex items-start justify-between gap-4">
+                <div>
+                    <label htmlFor="intervenant-select" className="block text-gray-700 font-semibold mb-2">
+                        Choisir un intervenant :
+                    </label>
+                    <select
+                        id="intervenant-select"
+                        value={selectedIntervenantId}
+                        onChange={handleIntervenantChange}
+                        className="p-2 border border-gray-300 rounded-lg"
+                    >
+                        {intervenantsList.map((intervenant) => (
+                            <option key={intervenant.id} value={intervenant.id}>
+                                {intervenant.firstname} {intervenant.lastname}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                {/* Bouton pour afficher les semaines de travail */}
+                {intervenant?.workweek?.data && (
+                    <button
+                        onClick={() => setIsWorkweekModalOpen(true)}
+                        className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition"
+                    >
+                        Voir les semaines de travail
+                    </button>
+                )}
+            </div>
 
         <h1 className="text-center text-3xl font-bold mb-8 text-gray-700">
             Planning de l'intervenant {intervenant.firstname} {intervenant.lastname}
         </h1>
 
-        <div className="flex gap-6">
+        <div className="flex gap-6 h-fit">
             {/* Sidebar - Week Selector */}
-            <div className="w-1/4 bg-white p-4 rounded-lg shadow border border-gray-200">
+            <div className="w-1/4 bg-white p-4 rounded-lg shadow border border-gray-200 h-full">
                 <h2 className="text-lg font-semibold mb-4 text-gray-600">Semaine</h2>
                 <select
                     value={currentYear}
@@ -341,6 +359,8 @@ export default function Availability() {
                     }}
                     slotMinTime="08:00:00"
                     slotMaxTime="20:00:00"
+                    height='100%'
+                    allDaySlot={false}
                     select={handleSelect}
                     datesSet={handleDatesSet}
                     eventClick={(info) => setSelectedEvent(info.event)}
@@ -457,6 +477,30 @@ export default function Availability() {
           </button>
             </div>
         </div>
+
+        {/* Modale des semaines de travail */}
+        {isWorkweekModalOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white p-6 rounded-lg shadow-lg w-96">
+                        <h2 className="text-xl font-bold mb-4">Semaines de travail</h2>
+                        <ul className="list-disc list-inside space-y-2">
+                            {intervenant.workweek.data.map((week) => (
+                                <li key={week.week} className="text-gray-700">
+                                    Semaine {week.week} : {week.hours} heures prévues
+                                </li>
+                            ))}
+                        </ul>
+                        <div className="flex justify-end mt-4">
+                            <button
+                                onClick={() => setIsWorkweekModalOpen(false)}
+                                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
+                            >
+                                Fermer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
         {/* Event Details */}
         {selectedEvent && (

@@ -1,0 +1,31 @@
+[
+    {
+        "intervenant": "intervenant.A@unilim.fr",
+        "workweek": [
+            { "week": 37, "hours": 4},
+            { "week": 38, "hours": 8},
+            { "week": 39, "hours": 12},
+            { "week": 40, "hours": 16},
+            { "week": 41, "hours": 2}
+        ]
+    },
+    {
+        "intervenant": "intervenant.B@unilim.fr",
+        "workweek": [
+            { "week": 4, "hours": 5},
+            { "week": 5, "hours": 8},
+            { "week": 6, "hours": 12},
+            { "week": 7, "hours": 13}
+        ]
+    },
+    {
+        "intervenant": "intervenant.C@unilim.fr",
+        "workweek": [
+            { "week": 39, "hours": 12},
+            { "week": 40, "hours": 16},
+            { "week": 41, "hours": 2}, 
+            { "week": 4, "hours": 5},
+            { "week": 5, "hours": 8}
+        ]
+    }
+]

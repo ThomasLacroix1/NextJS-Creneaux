@@ -20,8 +20,12 @@ const links = [
     href: "/dashboard/disponibilites",
   },
   {
-    name: "Exporter",
-    href: "/dashboard/exporter",
+    name: "Exporter disponibilités",
+    href: "/dashboard/exporter-dispos",
+  },
+  {
+    name: "Importer semaines de travail",
+    href: "/dashboard/importer-semaines",
   }
 ];
 

@@ -123,68 +123,7 @@ export default function Availability() {
         saveAvailability(updatedIntervenant);
         setSlotToDelete(null);
         setSelectedEvent(null);     
-    };
-
-    const getMissingWeeks = () => {
-        if (!intervenant || !intervenant.workweek || !intervenant.workweek.data) return [];
-    
-        const expectedWeeks = intervenant.workweek.data.map((w: any) => w.week); // Toutes les semaines attendues
-        const providedWeeks = Object.keys(intervenant.availability)
-            .filter(key => key.startsWith('S')) // Toutes les semaines ayant des créneaux spécifiques
-            .map(key => parseInt(key.slice(1)));
-    
-        const hasDefaultAvailability = intervenant.availability.default && intervenant.availability.default.length > 0;
-    
-        // Retourner uniquement les semaines réellement manquantes
-        return expectedWeeks.filter((week: any) => {
-            // Si la semaine a des créneaux spécifiques, elle n'est pas manquante
-            if (providedWeeks.includes(week)) return false;
-    
-            // Si la semaine n'a pas de créneaux spécifiques mais qu'il y a des créneaux par défaut, elle n'est pas manquante
-            if (hasDefaultAvailability) return false;
-    
-            // Sinon, la semaine est manquante
-            return true;
-        });
-    };
-    
-    const getUnderfilledWeeks = () => {
-        if (!intervenant || !intervenant.workweek || !intervenant.workweek.data) return [];
-    
-        const underfilled = [];
-        intervenant.workweek.data.forEach(({ week, hours }) => {
-            const weekKey = `S${week}`;
-            const slots = intervenant.availability[weekKey] || []; // Créneaux spécifiques de la semaine
-            const defaultSlots = intervenant.availability.default || []; // Créneaux par défaut
-            
-            let totalHours = 0;
-    
-            // Si la semaine n'a pas de créneaux spécifiques, utiliser les créneaux par défaut
-            if (slots.length === 0 && defaultSlots.length > 0) {
-                totalHours = defaultSlots.reduce((sum, slot) => {
-                    const [startHour, startMinute] = slot.from.split(':').map(Number);
-                    const [endHour, endMinute] = slot.to.split(':').map(Number);
-                    const duration = (endHour * 60 + endMinute - (startHour * 60 + startMinute)) / 60;
-                    return sum + duration;
-                }, 0);
-            } else {
-                totalHours = slots.reduce((sum, slot) => {
-                    const [startHour, startMinute] = slot.from.split(':').map(Number);
-                    const [endHour, endMinute] = slot.to.split(':').map(Number);
-                    const duration = (endHour * 60 + endMinute - (startHour * 60 + startMinute)) / 60;
-                    return sum + duration;
-                }, 0);
-            }
-    
-            // Vérifiez si les heures sont insuffisantes
-            if (totalHours < hours) {
-                underfilled.push({ week, expected: hours, provided: totalHours });
-            }
-        });
-    
-        return underfilled;
-    };
-    
+    };    
 
     const calculateMessages = () => {
         if (!intervenant || !intervenant.workweek || !intervenant.workweek.data) return [];
@@ -325,8 +264,6 @@ export default function Availability() {
     
         return events;
     };
-    
-    
 
     const getWeekNumber = (date) => {
         const target = new Date(date);
@@ -387,23 +324,22 @@ export default function Availability() {
     console.log(messages)
 
     return (
-    <div className="mx-auto h-full p-6 bg-gray-50">
+    <div className="mx-auto h-fit p-6 bg-gray-50">
         <div className='flex flex-row w-full gap-4 items-center mb-8 justify-center'>
-
-        <h1 className="text-center text-3xl font-bold text-gray-700">
-            Planning de l'intervenant {intervenant.firstname} {intervenant.lastname}
-        </h1>
-        {/* Bouton pour ouvrir la popup des messages */}
-        <button
-            className="flex items-center justify-center p-2 bg-gray-500 size-8 text-white rounded-full hover:bg-gray-600 focus:outline-none"
-            onClick={() => setIsPopupOpen(true)}
-        >
-            ?
-        </button>
+            <h1 className="text-center text-3xl font-bold text-gray-700">
+                Planning de l'intervenant {intervenant.firstname} {intervenant.lastname}
+            </h1>
+            {/* Bouton pour ouvrir la popup des messages */}
+            <button
+                className="flex items-center justify-center p-2 bg-gray-500 size-8 text-white rounded-full hover:bg-gray-600 focus:outline-none"
+                onClick={() => setIsPopupOpen(true)}
+            >
+                ?
+            </button>
         </div>
-        <div className="flex gap-6">
+        <div className="flex gap-6 h-fit">
             {/* Sidebar - Week Selector */}
-            <div className="w-1/4 bg-white p-4 rounded-lg shadow border border-gray-200">
+            <div className="w-1/4 bg-white p-4 rounded-lg shadow border border-gray-200 h-full">
                 <h2 className="text-lg font-semibold mb-4 text-gray-600">Semaine</h2>
                 <select
                     value={currentYear}
@@ -453,9 +389,10 @@ export default function Availability() {
                     slotMinTime="08:00:00"
                     slotMaxTime="20:00:00"
                     select={handleSelect}
+                    height='100%'
+                    allDaySlot={false}
                     datesSet={handleDatesSet}
-                    eventClick={(info) => setSelectedEvent(info.event)}
-                />
+                    eventClick={(info) => setSelectedEvent(info.event)}/>
             </div>
         </div>
 

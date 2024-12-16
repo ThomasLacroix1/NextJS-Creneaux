@@ -210,3 +210,54 @@ export async function getIntervenantsForExport() {
     client.release();
   }
 }
+
+export async function findIntervenantByEmail(email: string) {
+  const client = await db.connect();
+  try {
+    const result = await client.query('SELECT * FROM "intervenants" WHERE email = $1;', [email]);
+    return result.rows.length > 0 ? result.rows[0] : null;
+  } catch (err) {
+    console.error('Erreur lors de la recherche de l\'intervenant par email', err);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function saveIntervenantWorkweeks(intervenant: Intervenant) {
+  const client = await db.connect();
+  try {
+    await client.query('UPDATE "intervenants" SET workweek = $1 WHERE id = $2;', [intervenant.workweek, intervenant.id]);
+  } catch (err) {
+    console.error('Erreur lors de la sauvegarde des semaines de travail de l\'intervenant', err);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function saveWorkweeks(workloads: any[]) {
+  try {
+      // Exemple : boucle sur chaque intervenant et met à jour sa `workweek`.
+      for (const workload of workloads) {
+          const { intervenant, workweek } = workload;
+
+          // Recherchez l'intervenant via son email
+          const existingIntervenant = await findIntervenantByEmail(intervenant);
+          if (!existingIntervenant) {
+              console.warn(`Intervenant introuvable : ${intervenant}`);
+              continue;
+          }
+          console.log('before', existingIntervenant.workweek.data, workweek);
+          // Mettre à jour la `workweek` de l'intervenant
+          existingIntervenant.workweek.data = workweek;
+          console.log('after', existingIntervenant.workweek.data);
+          await saveIntervenantWorkweeks(existingIntervenant);
+      }
+
+      return { success: true };
+  } catch (error) {
+      console.error("Erreur lors de l'importation :", error);
+      throw new Error("Importation échouée.");
+  }
+}
