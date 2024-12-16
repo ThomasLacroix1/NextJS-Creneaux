@@ -6,7 +6,8 @@ CREATE TABLE Intervenants (
     key VARCHAR(255) NOT NULL,
     creationdate DATE NOT NULL,
     enddate DATE,
-    availability JSON
+    availability JSON,
+    modifieddate: Date
 );
 
 CREATE TABLE Users (

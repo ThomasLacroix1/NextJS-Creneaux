@@ -6,11 +6,12 @@ import { getIntervenantByKey, saveAvailability } from '@/lib/data';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
+import { Intervenant } from '@/types';
 
 export default function Availability() {
-    const [intervenant, setIntervenant] = useState(null);
+    const [intervenant, setIntervenant] = useState<Intervenant>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [events, setEvents] = useState([]);
+    const [events, setEvents] = useState<any[]>([]);
     const [currentWeek, setCurrentWeek] = useState(new Date());
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
     const [selectedSlot, setSelectedSlot] = useState(null); 
@@ -33,7 +34,7 @@ export default function Availability() {
         fetchIntervenant();
     }, [searchParams]);
 
-    const handleSelect = (selectionInfo) => {
+    const handleSelect = (selectionInfo: any) => {
         const { start, end } = selectionInfo;
         setSelectedSlot({ start, end });
     };
@@ -45,10 +46,10 @@ export default function Availability() {
             alert("L'heure de début doit être avant l'heure de fin.");
             return;
         }
-        if (start < new Date(intervenant.creationdate) || start > new Date(intervenant.enddate)) {
-            alert("Le créneau doit être compris dans les semaines de votre contrat.");
-            return;
-        }
+        // if (!intervenant.creationdate || !intervenant.enddate || start < new Date(intervenant.creationdate) || start > new Date(intervenant.enddate)) {
+        //     alert("Le créneau doit être compris dans les semaines de votre contrat.");
+        //     return;
+        // }
         const weekNumber = getWeekNumber(start);
         const weekKey = `S${weekNumber}`;
         const newSlot = {
@@ -85,7 +86,7 @@ export default function Availability() {
         const updatedAvailability = {
             ...intervenant.availability,
             [weekKey]: intervenant.availability[weekKey].filter(
-                (s) => !(s.from === slot.from && s.to === slot.to && s.days === slot.days)
+                (s: {}) => !(s.from === slot.from && s.to === slot.to && s.days === slot.days)
             ),
         };
         const updatedIntervenant = {
@@ -118,7 +119,7 @@ export default function Availability() {
         const weekKey = `S${weekNumber}`;
         const updatedAvailability = {
             ...intervenant.availability,
-            [weekKey]: intervenant.availability[weekKey].map((s) =>
+            [weekKey]: intervenant.availability[weekKey].map((s: {}) =>
                 s.from === slot.from && s.to === slot.to && s.days === slot.days
                     ? { ...slot, from: formatTime(updatedStart), to: formatTime(updatedEnd) }
                     : s
@@ -137,12 +138,12 @@ export default function Availability() {
         setSelectedEvent(null);
     };
 
-    const getDayFromDate = (date) => {
+    const getDayFromDate = (date: Date) => {
         const days = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
         return days[date.getDay()];
     };
 
-    const formatTime = (date) => {
+    const formatTime = (date: Date) => {
         return date.toLocaleTimeString("fr-FR", {
             hour: "2-digit",
             minute: "2-digit",
@@ -172,7 +173,7 @@ export default function Availability() {
         const creationDate = new Date(intervenant.creationdate);
         const endDate = new Date(intervenant.enddate);
     
-        if (currentDate >= creationDate && currentDate <= endDate) {
+        // if (currentDate >= creationDate && currentDate <= endDate) {
             Object.keys(slots).forEach((key) => {
                 if (key === `S${currentWeekNumber}` || (key === "default" && !slots[`S${currentWeekNumber}`])) {
                     slots[key].forEach((slot) => {
@@ -194,7 +195,7 @@ export default function Availability() {
                     });
                 }
             });
-        }
+        // }
         return events;
     };
     

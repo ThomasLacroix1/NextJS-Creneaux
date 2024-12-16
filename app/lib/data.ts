@@ -2,6 +2,7 @@
 
 import { Pool } from 'pg';
 import { v4 as uuidv4 } from 'uuid';
+import { Intervenant } from '@/types';
 
 const db = new Pool({
     user: process.env.DB_USER,
@@ -63,7 +64,7 @@ export async function countIntervenants() {
   }
 }
 
-export async function deleteIntervenant(id){
+export async function deleteIntervenant(id: number) {
   const client = await db.connect();
   try {
     await client.query('DELETE FROM "intervenants" WHERE id = $1;', [id]);
@@ -75,7 +76,7 @@ export async function deleteIntervenant(id){
   }
 }
 
-export async function getIntervenantById(id) {
+export async function getIntervenantById(id: number) {
   const client = await db.connect();
   try {
     const result = await client.query('SELECT * FROM "intervenants" WHERE id = $1;', [id]);
@@ -92,7 +93,7 @@ export async function getIntervenantById(id) {
   }
 }
 
-export async function createIntervenant(data: any) {
+export async function createIntervenant(data: {}) {
   const client = await db.connect();
   data.creationdate = new Date();
   const endDate = new Date(data.creationdate);
@@ -112,7 +113,7 @@ export async function createIntervenant(data: any) {
   }
 }
 
-export async function updateIntervenant(id, data: any){
+export async function updateIntervenant(id: number, data: any){
   const client = await db.connect();
   try {
     await client.query(
@@ -127,7 +128,7 @@ export async function updateIntervenant(id, data: any){
   }
 }
 
-export async function createIntervenantNewKey(id){
+export async function createIntervenantNewKey(id: number){
   const client = await db.connect();
   const newKey = uuidv4();
   try {
@@ -184,10 +185,11 @@ export async function regenerateKeysForIntervenants() {
   }
 }
 
-export async function saveAvailability(intervenant) {
+export async function saveAvailability(intervenant: Intervenant) {
   const client = await db.connect();
   try {
-    await client.query('UPDATE "intervenants" SET availability = $1 WHERE id = $2;', [intervenant.availability, intervenant.id]);
+    const modifiedDate = new Date();
+    await client.query('UPDATE "intervenants" SET availability = $1, modifieddate = $2 WHERE id = $3;', [intervenant.availability, modifiedDate, intervenant.id]);
   } catch (err) {
     console.error('Erreur lors de la sauvegarde de la disponibilité de l\'intervenant', err);
     throw err;

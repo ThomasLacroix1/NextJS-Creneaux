@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import { getIntervenantsForExport } from '@/lib/data';
+import { Intervenants, Intervenant } from '@/types';
 
 export default function ExportAvailability() {
-    const [error, setError] = useState(null);
-    const [exportedData, setExportedData] = useState(null);
+    const [error, setError] = useState<string | null>(null);
+    const [exportedData, setExportedData] = useState<{ [key: string]: any }>({});
 
     const handleExport = async () => {
         setError(null);
@@ -20,16 +21,19 @@ export default function ExportAvailability() {
         }
     };
 
-    const formatIntervenantsData = (data) => {
-        const result = {};
+    const formatIntervenantsData = (data: Intervenants): { [key: string]: any } => {
+        const result: { [key: string]: any } = {
+            exportDate: new Date().toISOString().split('T')[0],
+            intervenants: {}
+        };
 
-        data.forEach((intervenant) => {
-            result[`${intervenant.firstname} ${intervenant.lastname}`] = intervenant.availability;
+        data.forEach((intervenant: Intervenant) => {
+            result.intervenants[`${intervenant.firstname} ${intervenant.lastname}`] = intervenant.availability;
         });
         return result;
     };
 
-    const downloadJSON = (content, filename) => {
+    const downloadJSON = (content: { [key: string]: any }, filename: string) => {
         const blob = new Blob([JSON.stringify(content, null, 2)], { type: 'application/json;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -54,7 +58,7 @@ export default function ExportAvailability() {
                 {error && <p className="text-red-500 mt-4">{error}</p>}
             </div>
 
-            {exportedData && (
+            {Object.keys(exportedData).length > 0 && (
                 <div className="mt-8">
                     <h2 className="text-xl font-semibold text-gray-700 mb-4">Données exportées :</h2>
                     <pre className="bg-gray-400 p-4 rounded-lg text-sm overflow-auto max-h-96">{JSON.stringify(exportedData, null, 2)}</pre>
