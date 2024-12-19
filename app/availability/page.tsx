@@ -61,7 +61,7 @@ export default function Availability() {
         }
 
         if (!intervenant.workweek || !intervenant.workweek.data) {
-            alert("Les données de la semaine de travail ne sont pas disponibles.");
+            alert("Cette semaine n'est pas une semaine de travail.");
             return;
         }
 
@@ -234,7 +234,7 @@ export default function Availability() {
     
         // Vérifiez si les semaines de travail sont définies
         if (!intervenant.workweek || !intervenant.workweek.data) {
-            return events; // Si aucune semaine de travail n'est définie, retourner un tableau vide
+            return events;
         }
     
         // Obtenez les semaines de travail
@@ -401,7 +401,7 @@ export default function Availability() {
         {/* Default Availability Management */}
         <div className="mt-8 bg-white p-8 rounded-xl shadow-lg border border-gray-300">
             <h2 className="text-xl font-semibold mb-6 text-gray-800">Modifier les disponibilités par défaut</h2>
-            {intervenant.availability.default.map((slot, index) => (
+            {intervenant.availability.default?.map((slot, index) => (
                 <div
                     key={index}
                     className="flex flex-wrap items-end gap-6 border-b pb-4 last:border-b-0"
@@ -465,7 +465,7 @@ export default function Availability() {
                     </div>
                     <button
                         onClick={() => {
-                            const updatedDefault = intervenant.availability.default.filter(
+                            const updatedDefault = intervenant.availability.default?.filter(
                                 (_, i) => i !== index
                             );
                             setIntervenant({
@@ -483,7 +483,7 @@ export default function Availability() {
                 <button
                     onClick={() => {
                         const updatedDefault = [
-                            ...intervenant.availability.default,
+                            ...(intervenant.availability.default || []),
                             { days: "lundi", from: "08:00", to: "12:00" },
                         ];
                         setIntervenant({
