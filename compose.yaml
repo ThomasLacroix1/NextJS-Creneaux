@@ -15,18 +15,21 @@ services:
       DB_NAME: db
       DB_PORT: 5432
       AUTH_SECRET: 5DUYX6WPQiSB8gj/MRLWnoiTVRGHkL8s22gmSLgadLE=
+    depends_on:
+      - db
 
   db:
-    image: postgres:17
+    image: postgres:15-alpine
     container_name: db
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
       POSTGRES_DB: db
     ports:
-      - '5432:5432'
+      - "5432:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql # Monte le script SQL dans le bon dossier
 
   pgadmin:
     image: dpage/pgadmin4
