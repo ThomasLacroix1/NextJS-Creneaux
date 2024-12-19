@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, notFound } from 'next/navigation';
-import { getIntervenantById, saveAvailability , getIntervenantsNames} from '@/lib/data';
+import { getIntervenantById, saveAvailability, getIntervenantsNames } from '@/lib/data';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -16,38 +16,47 @@ export default function Availability() {
     const [isWorkweekModalOpen, setIsWorkweekModalOpen] = useState(false);
     const [currentWeek, setCurrentWeek] = useState(new Date());
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-    const [selectedSlot, setSelectedSlot] = useState(null); 
-    const [slotToDelete, setSlotToDelete] = useState(null); 
-    const [selectedEvent, setSelectedEvent] = useState(null); 
+    const [selectedSlot, setSelectedSlot] = useState(null);
+    const [messages, setMessages] = useState<string[]>([]);
+    const [isPopupOpen, setIsPopupOpen] = useState(false);
+    const [slotToDelete, setSlotToDelete] = useState(null);
+    const [selectedEvent, setSelectedEvent] = useState(null);
     const [editingEvent, setEditingEvent] = useState(null);
     const calendarRef = useRef(null);
 
     useEffect(() => {
-      const fetchIntervenantsList = async () => {
-          const intervenants = await getIntervenantsNames();
-          setIntervenantsList(intervenants);
-          if (intervenants.length > 0) {
-              setSelectedIntervenantId(intervenants[0].id);
-          }
-      };
-      fetchIntervenantsList();
+        const fetchIntervenantsList = async () => {
+            const intervenants = await getIntervenantsNames();
+            setIntervenantsList(intervenants);
+            if (intervenants.length > 0) {
+                setSelectedIntervenantId(intervenants[0].id);
+            }
+        };
+        fetchIntervenantsList();
     }, []);
 
     useEffect(() => {
-      const fetchIntervenant = async () => {
-          if (selectedIntervenantId) {
-              setIsLoading(true);
-              const intervenant = await getIntervenantById(selectedIntervenantId);
-              setIntervenant(intervenant);
-              setEvents(transformSlotsToEvents(intervenant, currentWeek));
-              setIsLoading(false);
-          }
-      };
-      fetchIntervenant();
+        const fetchIntervenant = async () => {
+            if (selectedIntervenantId) {
+                setIsLoading(true);
+                const intervenant = await getIntervenantById(selectedIntervenantId);
+                setIntervenant(intervenant);
+                setEvents(transformSlotsToEvents(intervenant, currentWeek));
+                setIsLoading(false);
+            }
+        };
+        fetchIntervenant();
     }, [selectedIntervenantId]);
 
+    useEffect(() => {
+        if (intervenant) {
+            const newMessages = calculateMessages();
+            setMessages(newMessages);
+        }
+    }, [intervenant]);
+
     const handleIntervenantChange = (e) => {
-      setSelectedIntervenantId(e.target.value);
+        setSelectedIntervenantId(e.target.value);
     };
 
     const handleSelect = (selectionInfo: any) => {
@@ -60,6 +69,18 @@ export default function Availability() {
         const { start, end } = selectedSlot;
         if (start >= end) {
             alert("L'heure de début doit être avant l'heure de fin.");
+            return;
+        }
+
+        if (!intervenant.workweek || !intervenant.workweek.data) {
+            alert("Cette semaine n'est pas une semaine de travail.");
+            return;
+        }
+
+        const selectedWeek = getWeekNumber(start);
+        const isWithinWorkweek = intervenant.workweek.data.some((week: { week: number }) => week.week === selectedWeek);
+        if (intervenant.workweek.data.length > 0 && !isWithinWorkweek) {
+            alert("Le créneau doit être compris dans les semaines de votre contrat.");
             return;
         }
 
@@ -96,12 +117,19 @@ export default function Availability() {
         }
         const weekNumber = getWeekNumber(currentWeek);
         const weekKey = `S${weekNumber}`;
+        const updatedWeekSlots = intervenant.availability[weekKey].filter(
+            (s: {}) => !(s.from === slot.from && s.to === slot.to && s.days === slot.days)
+        );
         const updatedAvailability = {
             ...intervenant.availability,
-            [weekKey]: intervenant.availability[weekKey].filter(
-                (s: {}) => !(s.from === slot.from && s.to === slot.to && s.days === slot.days)
-            ),
+            [weekKey]: updatedWeekSlots,
         };
+
+        // Remove the week key if there are no more slots in the week
+        if (updatedWeekSlots.length === 0) {
+            delete updatedAvailability[weekKey];
+        }
+
         const updatedIntervenant = {
             ...intervenant,
             availability: updatedAvailability,
@@ -177,15 +205,15 @@ export default function Availability() {
         const events = [];
         const currentWeekNumber = getWeekNumber(currentDate);
         const slots = intervenant.availability;
-    
+
         // Vérifiez si les semaines de travail sont définies
         if (!intervenant.workweek || !intervenant.workweek.data) {
             return events; // Si aucune semaine de travail n'est définie, retourner un tableau vide
         }
-    
+
         // Obtenez les semaines de travail
         const workweeks = intervenant.workweek.data.map(week => week.week);
-    
+
         // Afficher uniquement si la semaine actuelle est une semaine de travail
         if (workweeks.includes(currentWeekNumber)) {
             Object.keys(slots).forEach((key) => {
@@ -211,8 +239,46 @@ export default function Availability() {
                 }
             });
         }
-    
+
         return events;
+    };
+
+    const calculateMessages = () => {
+        if (!intervenant || !intervenant.workweek || !intervenant.workweek.data) return [];
+
+        const underfilledWeeks = intervenant.workweek.data.map(({ week, hours }) => {
+            const weekKey = `S${week}`;
+            const slots = intervenant.availability[weekKey] || [];
+            const defaultSlots = intervenant.availability.default || [];
+
+            // Calcule les heures totales pour la semaine
+            let totalHours = 0;
+            if (slots.length === 0 && defaultSlots.length > 0) {
+                totalHours = defaultSlots.reduce((sum, slot) => {
+                    const [startHour, startMinute] = slot.from.split(':').map(Number);
+                    const [endHour, endMinute] = slot.to.split(':').map(Number);
+                    const duration = (endHour * 60 + endMinute - (startHour * 60 + startMinute)) / 60;
+                    const daysCount = slot.days.split(', ').length;
+                    return sum + (duration * daysCount);
+                }, 0);
+            } else {
+                totalHours = slots.reduce((sum, slot) => {
+                    const [startHour, startMinute] = slot.from.split(':').map(Number);
+                    const [endHour, endMinute] = slot.to.split(':').map(Number);
+                    const duration = (endHour * 60 + endMinute - (startHour * 60 + startMinute)) / 60;
+                    return sum + duration;
+                }, 0);
+            }
+
+            return {
+                week,
+                expected: hours,
+                provided: totalHours,
+                missing: hours - totalHours > 0 ? hours - totalHours : 0, // Heures manquantes
+            };
+        });
+
+        return underfilledWeeks;
     };
 
     const getWeekNumber = (date) => {
@@ -272,9 +338,9 @@ export default function Availability() {
     }
 
     return (
-    <div className="mx-auto h-fit w-full p-6 bg-gray-50 rounded-lg shadow-lg">
-        {/* Intervenant selector */}
-        <div className="mb-6 flex items-start justify-between gap-4">
+        <div className="mx-auto h-fit w-full p-6 bg-gray-50 rounded-lg shadow-lg">
+            {/* Intervenant selector */}
+            <div className="mb-6 flex items-start justify-between gap-4">
                 <div>
                     <label htmlFor="intervenant-select" className="block text-gray-700 font-semibold mb-2">
                         Choisir un intervenant :
@@ -292,194 +358,192 @@ export default function Availability() {
                         ))}
                     </select>
                 </div>
-
-                {/* Bouton pour afficher les semaines de travail */}
-                {intervenant?.workweek?.data && (
-                    <button
-                        onClick={() => setIsWorkweekModalOpen(true)}
-                        className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition"
-                    >
-                        Voir les semaines de travail
-                    </button>
-                )}
             </div>
 
-        <h1 className="text-center text-3xl font-bold mb-8 text-gray-700">
-            Planning de l'intervenant {intervenant.firstname} {intervenant.lastname}
-        </h1>
-
-        <div className="flex gap-6 h-fit">
-            {/* Sidebar - Week Selector */}
-            <div className="w-1/4 bg-white p-4 rounded-lg shadow border border-gray-200 h-full">
-                <h2 className="text-lg font-semibold mb-4 text-gray-600">Semaine</h2>
-                <select
-                    value={currentYear}
-                    onChange={(e) => changeYear(parseInt(e.target.value))}
-                    className="mb-4 p-2 border border-gray-300 rounded"
+            <div className='flex flex-row w-full gap-4 items-center mb-8 justify-center'>
+                <h1 className="text-center text-3xl font-bold text-gray-700">
+                    Planning de l'intervenant {intervenant.firstname} {intervenant.lastname}
+                </h1>
+                {/* Bouton pour ouvrir la popup des messages */}
+                <button
+                    className="flex items-center justify-center p-2 bg-gray-500 size-8 text-white rounded-full hover:bg-gray-600 focus:outline-none"
+                    onClick={() => setIsPopupOpen(true)}
                 >
-                    {[...Array(5)].map((_, i) => (
-                        <option key={i} value={currentYear - 2 + i}>
-                            {currentYear - 2 + i}
-                        </option>
-                    ))}
-                </select>
-                <div className="grid grid-cols-4 gap-2">
-                    {[...Array(has53rdWeek(currentYear) ? 53 : 52).keys()].map((week) => (
-                        <button
-                            key={week + 1}
-                            className={`p-2 rounded-lg text-center font-semibold ${
-                                getWeekNumber(currentWeek) === week + 1
+                    ?
+                </button>
+            </div>
+
+            <div className="flex gap-6 h-fit">
+                {/* Sidebar - Week Selector */}
+                <div className="w-1/4 bg-white p-4 rounded-lg shadow border border-gray-200 h-full">
+                    <h2 className="text-lg font-semibold mb-4 text-gray-600">Semaine</h2>
+                    <select
+                        value={currentYear}
+                        onChange={(e) => changeYear(parseInt(e.target.value))}
+                        className="mb-4 p-2 border border-gray-300 rounded"
+                    >
+                        {[...Array(5)].map((_, i) => (
+                            <option key={i} value={currentYear - 2 + i}>
+                                {currentYear - 2 + i}
+                            </option>
+                        ))}
+                    </select>
+                    <div className="grid grid-cols-4 gap-2">
+                        {[...Array(has53rdWeek(currentYear) ? 53 : 52).keys()].map((week) => (
+                            <button
+                                key={week + 1}
+                                className={`p-2 rounded-lg text-center font-semibold ${getWeekNumber(currentWeek) === week + 1
                                     ? "bg-red-500 text-white"
                                     : "bg-gray-200 text-gray-800 hover:bg-red-200"
-                            }`}
-                            onClick={() => navigateToWeek(week + 1)}
-                        >
-                            {week + 1}
-                        </button>
-                    ))}
+                                    }`}
+                                onClick={() => navigateToWeek(week + 1)}
+                            >
+                                {week + 1}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Calendar */}
+                <div className="w-3/4 bg-white p-4 rounded-lg shadow border border-gray-200">
+                    <FullCalendar
+                        ref={calendarRef}
+                        plugins={[timeGridPlugin, interactionPlugin]}
+                        initialView="timeGridWeek"
+                        selectable={true}
+                        hiddenDays={[0, 6]}
+                        events={events}
+                        headerToolbar={{
+                            left: "prev,next today",
+                            right: "title",
+                        }}
+                        buttonText={{
+                            today: "Aujourd'hui",
+                            week: "Semaine",
+                        }}
+                        slotMinTime="08:00:00"
+                        slotMaxTime="20:00:00"
+                        height='100%'
+                        allDaySlot={false}
+                        select={handleSelect}
+                        datesSet={handleDatesSet}
+                        eventClick={(info) => setSelectedEvent(info.event)}
+                    />
                 </div>
             </div>
 
-            {/* Calendar */}
-            <div className="w-3/4 bg-white p-4 rounded-lg shadow border border-gray-200">
-                <FullCalendar
-                    ref={calendarRef}
-                    plugins={[timeGridPlugin, interactionPlugin]}
-                    initialView="timeGridWeek"
-                    selectable={true}
-                    hiddenDays={[0, 6]}
-                    events={events}
-                    headerToolbar={{
-                        left: "prev,next today",
-                        right: "title",
-                    }}
-                    buttonText={{
-                        today: "Aujourd'hui",
-                        week: "Semaine",
-                    }}
-                    slotMinTime="08:00:00"
-                    slotMaxTime="20:00:00"
-                    height='100%'
-                    allDaySlot={false}
-                    select={handleSelect}
-                    datesSet={handleDatesSet}
-                    eventClick={(info) => setSelectedEvent(info.event)}
-                />
+            {/* Default Availability Management */}
+            <div className="mt-8 bg-white p-8 rounded-xl shadow-lg border border-gray-300">
+                <h2 className="text-xl font-semibold mb-6 text-gray-800">Modifier les disponibilités par défaut</h2>
+                {intervenant.availability.default && intervenant.availability.default.length > 0 ? (
+                    intervenant.availability.default.map((slot, index) => (
+                        <div
+                            key={index}
+                            className="flex flex-wrap items-end gap-6 border-b pb-4 last:border-b-0"
+                        >
+                            <div className="flex flex-col flex-1">
+                                <label className="block text-sm font-medium text-gray-600">Jours</label>
+                                <select
+                                    multiple
+                                    value={slot.days.split(", ")}
+                                    onChange={(e) => {
+                                        const selectedOptions = Array.from(e.target.selectedOptions).map(
+                                            (option) => option.value
+                                        );
+                                        const updatedDefault = [...intervenant.availability.default];
+                                        updatedDefault[index] = { ...slot, days: selectedOptions.join(", ") };
+                                        setIntervenant({
+                                            ...intervenant,
+                                            availability: { ...intervenant.availability, default: updatedDefault },
+                                        });
+                                    }}
+                                    className="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none"
+                                >
+                                    <option value="lundi">Lundi</option>
+                                    <option value="mardi">Mardi</option>
+                                    <option value="mercredi">Mercredi</option>
+                                    <option value="jeudi">Jeudi</option>
+                                    <option value="vendredi">Vendredi</option>
+                                </select>
+                            </div>
+                            <div className="flex flex-col flex-1">
+                                <label className="block text-sm font-medium text-gray-600">Début</label>
+                                <input
+                                    type="time"
+                                    value={slot.from}
+                                    onChange={(e) => {
+                                        const updatedDefault = [...intervenant.availability.default];
+                                        updatedDefault[index] = { ...slot, from: e.target.value };
+                                        setIntervenant({
+                                            ...intervenant,
+                                            availability: { ...intervenant.availability, default: updatedDefault },
+                                        });
+                                    }}
+                                    className="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none"
+                                />
+                            </div>
+                            <div className="flex flex-col flex-1">
+                                <label className="block text-sm font-medium text-gray-600">Fin</label>
+                                <input
+                                    type="time"
+                                    value={slot.to}
+                                    onChange={(e) => {
+                                        const updatedDefault = [...intervenant.availability.default];
+                                        updatedDefault[index] = { ...slot, to: e.target.value };
+                                        setIntervenant({
+                                            ...intervenant,
+                                            availability: { ...intervenant.availability, default: updatedDefault },
+                                        });
+                                    }}
+                                    className="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none"
+                                />
+                            </div>
+                            <button
+                                onClick={() => {
+                                    const updatedDefault = intervenant.availability.default.filter(
+                                        (_, i) => i !== index
+                                    );
+                                    setIntervenant({
+                                        ...intervenant,
+                                        availability: { ...intervenant.availability, default: updatedDefault },
+                                    });
+                                }}
+                                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
+                            >
+                                Supprimer
+                            </button>
+                        </div>
+                    ))
+                ) : (
+                    <p className="text-gray-600">Aucune disponibilité par défaut n'est définie.</p>
+                )}
+                <div className="flex justify-end gap-6 items-center mt-4">
+                    <button
+                        onClick={() => {
+                            const updatedDefault = [
+                                ...(intervenant.availability.default || []),
+                                { days: "lundi", from: "08:00", to: "12:00" },
+                            ];
+                            setIntervenant({
+                                ...intervenant,
+                                availability: { ...intervenant.availability, default: updatedDefault },
+                            });
+                        }}
+                        className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
+                    >
+                        Ajouter un créneau par défaut
+                    </button>
+                    <button
+                        onClick={() => saveAvailability(intervenant)}
+                        className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition"
+                    >
+                        Enregistrer les modifications
+                    </button>
+                </div>
             </div>
-        </div>
 
-        {/* Default Availability Management */}
-        <div className="mt-8 bg-white p-8 rounded-xl shadow-lg border border-gray-300">
-            <h2 className="text-xl font-semibold mb-6 text-gray-800">Modifier les disponibilités par défaut</h2>
-            {intervenant.availability.default && intervenant.availability.default.length > 0 ? (
-          intervenant.availability.default.map((slot, index) => (
-              <div
-            key={index}
-            className="flex flex-wrap items-end gap-6 border-b pb-4 last:border-b-0"
-              >
-            <div className="flex flex-col flex-1">
-                <label className="block text-sm font-medium text-gray-600">Jours</label>
-                <select
-              multiple
-              value={slot.days.split(", ")}
-              onChange={(e) => {
-                  const selectedOptions = Array.from(e.target.selectedOptions).map(
-                (option) => option.value
-                  );
-                  const updatedDefault = [...intervenant.availability.default];
-                  updatedDefault[index] = { ...slot, days: selectedOptions.join(", ") };
-                  setIntervenant({
-                ...intervenant,
-                availability: { ...intervenant.availability, default: updatedDefault },
-                  });
-              }}
-              className="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none"
-                >
-              <option value="lundi">Lundi</option>
-              <option value="mardi">Mardi</option>
-              <option value="mercredi">Mercredi</option>
-              <option value="jeudi">Jeudi</option>
-              <option value="vendredi">Vendredi</option>
-                </select>
-            </div>
-            <div className="flex flex-col flex-1">
-                <label className="block text-sm font-medium text-gray-600">Début</label>
-                <input
-              type="time"
-              value={slot.from}
-              onChange={(e) => {
-                  const updatedDefault = [...intervenant.availability.default];
-                  updatedDefault[index] = { ...slot, from: e.target.value };
-                  setIntervenant({
-                ...intervenant,
-                availability: { ...intervenant.availability, default: updatedDefault },
-                  });
-              }}
-              className="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none"
-                />
-            </div>
-            <div className="flex flex-col flex-1">
-                <label className="block text-sm font-medium text-gray-600">Fin</label>
-                <input
-              type="time"
-              value={slot.to}
-              onChange={(e) => {
-                  const updatedDefault = [...intervenant.availability.default];
-                  updatedDefault[index] = { ...slot, to: e.target.value };
-                  setIntervenant({
-                ...intervenant,
-                availability: { ...intervenant.availability, default: updatedDefault },
-                  });
-              }}
-              className="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none"
-                />
-            </div>
-            <button
-                onClick={() => {
-              const updatedDefault = intervenant.availability.default.filter(
-                  (_, i) => i !== index
-              );
-              setIntervenant({
-                  ...intervenant,
-                  availability: { ...intervenant.availability, default: updatedDefault },
-              });
-                }}
-                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
-            >
-                Supprimer
-            </button>
-              </div>
-          ))
-            ) : (
-          <p className="text-gray-600">Aucune disponibilité par défaut n'est définie.</p>
-            )}
-            <div className="flex justify-end gap-6 items-center mt-4">
-          <button
-              onClick={() => {
-            const updatedDefault = [
-                ...(intervenant.availability.default || []),
-                { days: "lundi", from: "08:00", to: "12:00" },
-            ];
-            setIntervenant({
-                ...intervenant,
-                availability: { ...intervenant.availability, default: updatedDefault },
-            });
-              }}
-              className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
-          >
-              Ajouter un créneau par défaut
-          </button>
-          <button
-              onClick={() => saveAvailability(intervenant)}
-              className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition"
-          >
-              Enregistrer les modifications
-          </button>
-            </div>
-        </div>
-
-        {/* Modale des semaines de travail */}
-        {isWorkweekModalOpen && (
+            {/* Modale des semaines de travail */}
+            {isWorkweekModalOpen && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white p-6 rounded-lg shadow-lg w-96">
                         <h2 className="text-xl font-bold mb-4">Semaines de travail</h2>
@@ -502,8 +566,8 @@ export default function Availability() {
                 </div>
             )}
 
-        {/* Event Details */}
-        {selectedEvent && (
+            {/* Event Details */}
+            {selectedEvent && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white p-6 rounded-lg shadow-lg w-96">
                         <h2 className="text-xl font-bold mb-4">Détails du créneau</h2>
@@ -643,6 +707,38 @@ export default function Availability() {
                 </div>
             )}
 
+            {/* Popup des messages */}
+            {isPopupOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white p-6 rounded-lg shadow-lg w-96">
+                        <h2 className="text-xl font-bold mb-4">Bilan des Heures</h2>
+                        <div className="space-y-2">
+                            <ul className="list-disc list-inside">
+                                {messages.map((message, index) => (
+                                    <li key={index} className="text-gray-700">
+                                        <strong>Semaine {message.week}</strong> :
+                                        {` ${message.provided} / ${message.expected} heures `}
+                                        {message.missing > 0 ? (
+                                            <span className="text-red-500">(-{message.missing} heures manquantes)</span>
+                                        ) : (
+                                            <span className="text-green-500">(Complet)</span>
+                                        )}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                        <div className="flex justify-end mt-4">
+                            <button
+                                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                                onClick={() => setIsPopupOpen(false)}
+                            >
+                                Fermer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Modale de confirmation */}
             {selectedSlot && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -727,7 +823,7 @@ export default function Availability() {
                     </div>
                 </div>
             )}
-    </div>
-);
+        </div>
+    );
 
 }
