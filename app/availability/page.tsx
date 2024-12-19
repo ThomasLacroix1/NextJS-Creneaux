@@ -20,6 +20,7 @@ export default function Availability() {
     const [editingEvent, setEditingEvent] = useState(null);
     const [messages, setMessages] = useState<string[]>([]);
     const [isPopupOpen, setIsPopupOpen] = useState(false);
+    const [ValidationDate, setValidationDate] = useState(true);
     const searchParams = useSearchParams();
     const calendarRef = useRef(null);
 
@@ -28,6 +29,9 @@ export default function Availability() {
             const key = searchParams.get('key');
             if (key) {
                 const intervenant = await getIntervenantByKey(key);
+                const now = new Date();
+                console.log(new Date(intervenant.enddate), now)
+                if (new Date(intervenant.enddate) < now) setValidationDate(false);
                 setIntervenant(intervenant);
                 setEvents(transformSlotsToEvents(intervenant, new Date()));
             }
@@ -317,11 +321,9 @@ export default function Availability() {
         return <div>Chargement...</div>;
     }
 
-    if (!intervenant) {
+    if (!intervenant || !ValidationDate) {
         return notFound();
     }
-
-    console.log(messages)
 
     return (
     <div className="mx-auto h-fit p-6 bg-gray-50">
